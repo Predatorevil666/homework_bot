@@ -37,7 +37,7 @@ def data_with_new_hw_status(random_timestamp):
         'homeworks': [
             {
                 'id': 777777777,
-                'homework_name': 'hw123.zip',
+                'homework_name': f'hw{random.randint(10, 1000)}.zip',
                 'status': 'approved',
                 'reviewer_comment': 'Принято!',
                 'date_updated': '2021-04-11T10:31:09Z',
