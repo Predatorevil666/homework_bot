@@ -36,7 +36,7 @@ HOMEWORK_VERDICTS = {
 
 
 bot = None
-STATUS: dict[str, str] = {}
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -105,8 +105,6 @@ def check_response(response: dict) -> list[dict[str, str]]:
         )
     if not isinstance(response['homeworks'], list):
         raise TypeError('Значение по ключу "homeworks" должно быть списком.')
-    if len(response['homeworks']) == 0:
-        logger.debug('Пустой список')
     return response['homeworks']
 
 
@@ -124,30 +122,24 @@ def parse_status(homework: list[dict[str, str]]) -> str:
                f'обнаруженный в ответе API. {status}')
         logger.error(msg)
         raise WrongStatusHomeWork(msg)
-    if STATUS.get(homework_name) != status:
-        STATUS[homework_name] = status
-        verdict = HOMEWORK_VERDICTS[status]
-        return f'Изменился статус проверки работы "{homework_name}". {verdict}'
-    else:
-        logger.debug('Отсутствие в ответе новых статусов')
-        return None
+    verdict = HOMEWORK_VERDICTS[status]
+    return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
 def main():
     """Основная логика работы бота."""
-    try:
-        check_tokens()
-        bot = TeleBot(TELEGRAM_TOKEN)
-    except Exception:
-        return
+    check_tokens()
+    bot = TeleBot(TELEGRAM_TOKEN)
+    timestamp = int(time.time()) - TIMESTAMP_PERIOD
     while True:
         try:
-            timestamp = int(time.time()) - TIMESTAMP_PERIOD
             response = get_api_answer(timestamp)
-            for item in check_response(response):
-                message = parse_status(item)
-                if message is not None:
-                    send_message(bot, message)
+            homeworks = check_response(response)
+            if homeworks:
+                send_message(bot, parse_status(homeworks[0]))
+            else:
+                logger.debug('Отсутствие в ответе новых статусов')
+            timestamp = response.get('current_date', timestamp)
         except telebot.apihelper.ApiException as error:
             msg = f'Ошибка при отправки сообщения в Телеграмм: {error}'
             logger.error(msg, exc_info=True)
