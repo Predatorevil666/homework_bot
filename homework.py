@@ -115,8 +115,8 @@ def check_response(response: dict) -> None:
         )
     if not isinstance(response['homeworks'], list):
         raise TypeError(
-            f'Значение по ключу "homeworks" должно быть списком.'
-            f'Получен тип: {type(response['homeworks']).__name__}'
+            f"Значение по ключу <homeworks> должно быть списком."
+            f"Получен тип: {type(response['homeworks']).__name__}"
         )
     logger.info('Проверка данных прошла успешно!')
 
