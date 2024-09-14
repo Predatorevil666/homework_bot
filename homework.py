@@ -2,13 +2,13 @@ import logging
 import os
 import sys
 import time
-
 from contextlib import suppress
+from logging.handlers import RotatingFileHandler
 
 import requests
 import telebot
 from dotenv import load_dotenv
-from logging.handlers import RotatingFileHandler
+
 from telebot import TeleBot
 
 from exceptions import (
@@ -74,15 +74,14 @@ def check_tokens():
 def send_message(bot, message):
     """Отправка сообщения в Telegram-чат."""
     logger.info('Начало отправки сообщения в Telegram')
-    try:
-        bot.send_message(
-            chat_id=TELEGRAM_CHAT_ID,
-            text=message,
-        )
-        logger.debug('Удачная отправка сообщения в Telegram!')
-    except requests.RequestException as error:
-        msg = f'Отсутствует подключение к интернету {error}'
-        raise BotConnectionError(msg)
+    bot.send_message(
+        chat_id=TELEGRAM_CHAT_ID,
+        text=message,
+    )
+    logger.debug('Удачная отправка сообщения в Telegram!')
+    # except requests.RequestException as error:
+    #     msg = f'Отсутствует подключение к интернету {error}'
+    #     raise BotConnectionError(msg)
 
 
 def get_api_answer(timestamp):
@@ -92,9 +91,8 @@ def get_api_answer(timestamp):
         payload = {'from_date': timestamp}
         response = requests.get(ENDPOINT, headers=HEADERS, params=payload)
         logger.info('Получен корректный ответ от API!')
-    except requests.RequestException as error:
-        msg = f'Ошибка при запросе к основному API: {error}'
-        raise ConnectionError(msg)
+    except requests.RequestException:
+        raise ConnectionError('Ошибка при запросе к основному API')
     if response.status_code != requests.codes.OK:
         msg = f'Ошибка обращения к API. Код ответа {response.status_code}'
         raise RequestStatusCodeError(msg)
@@ -127,11 +125,12 @@ def parse_status(homework: list[dict[str, str]]) -> str:
     required_keys = ['homework_name', 'status']
     missing_keys = [key for key in required_keys if key not in homework]
     if missing_keys:
-        raise KeyError(f'Отсутствуют ключи в домашней работе:'
-                       f' {", ".join(missing_keys)}.'
-                       f' Ожидались ключи: {", ".join(required_keys)}.'
+        raise KeyError(
+            f'Отсутствуют ключи в домашней работе:'
+            f' {", ".join(missing_keys)}.'
+            f' Ожидались ключи: {", ".join(required_keys)}.'
 
-                       )
+        )
     'Отсутствуют ключи в домашней работе: {}. Ожидались ключи: {}.'
     homework_name = homework['homework_name']
     status = homework['status']
@@ -149,18 +148,24 @@ def main():
     check_tokens()
     bot = TeleBot(TELEGRAM_TOKEN)
     timestamp = int(time.time())
-    last_message = None
+    last_message = ''
     while True:
         try:
             response = get_api_answer(timestamp)
             check_response(response)
             homeworks = response['homeworks']
-            if homeworks:
-                send_message(bot, parse_status(homeworks[0]))
+            status_homework = parse_status(homeworks[0])
+            if homeworks and last_message != status_homework:
+                send_message(bot, status_homework)
+                last_message = status_homework
             else:
                 logger.debug('Отсутствие в ответе новых статусов')
             timestamp = response.get('current_date', timestamp)
-        except (telebot.apihelper.ApiException, BotConnectionError) as error:
+
+        except (
+            telebot.apihelper.ApiException,
+            requests.RequestException
+        ) as error:
             msg = f'Ошибка при отправки сообщения в Телеграмм: {error}'
             logger.exception(msg)
         except Exception as error:
