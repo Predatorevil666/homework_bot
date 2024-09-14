@@ -8,7 +8,6 @@ from logging.handlers import RotatingFileHandler
 import requests
 import telebot
 from dotenv import load_dotenv
-
 from telebot import TeleBot
 
 from exceptions import (
@@ -64,9 +63,9 @@ def check_tokens():
 
     undefined_tokens = [name for name, token in tokens.items() if not token]
     if undefined_tokens:
-        msg = (f'Отсутствуют обязательные переменные '
+        msg = ('Отсутствуют обязательные переменные '
                f'окружения:{", ".join(undefined_tokens)} \n'
-               f'Программа принудительно остановлена.')
+               'Программа принудительно остановлена.')
         logger.critical(msg)
         raise EnvError(msg)
 
@@ -79,9 +78,6 @@ def send_message(bot, message):
         text=message,
     )
     logger.debug('Удачная отправка сообщения в Telegram!')
-    # except requests.RequestException as error:
-    #     msg = f'Отсутствует подключение к интернету {error}'
-    #     raise BotConnectionError(msg)
 
 
 def get_api_answer(timestamp):
@@ -91,8 +87,8 @@ def get_api_answer(timestamp):
         payload = {'from_date': timestamp}
         response = requests.get(ENDPOINT, headers=HEADERS, params=payload)
         logger.info('Получен корректный ответ от API!')
-    except requests.RequestException:
-        raise ConnectionError('Ошибка при запросе к основному API')
+    except requests.RequestException as error:
+        raise ConnectionError(f'Ошибка при запросе к основному API: {error}')
     if response.status_code != requests.codes.OK:
         msg = f'Ошибка обращения к API. Код ответа {response.status_code}'
         raise RequestStatusCodeError(msg)
@@ -154,14 +150,16 @@ def main():
             response = get_api_answer(timestamp)
             check_response(response)
             homeworks = response['homeworks']
+            if len(homeworks) == 0:
+                logger.debug('Получен пустой список домашних работ')
+                continue
             status_homework = parse_status(homeworks[0])
-            if homeworks and last_message != status_homework:
+            if last_message != status_homework:
                 send_message(bot, status_homework)
                 last_message = status_homework
-            else:
-                logger.debug('Отсутствие в ответе новых статусов')
+                continue
+            logger.debug('Отсутствие в ответе новых статусов')
             timestamp = response.get('current_date', timestamp)
-
         except (
             telebot.apihelper.ApiException,
             requests.RequestException
