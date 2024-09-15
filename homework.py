@@ -13,7 +13,6 @@ from telebot import TeleBot
 from exceptions import (
     RequestStatusCodeError,
     EnvError,
-    BotConnectionError
 )
 
 
@@ -109,7 +108,7 @@ def check_response(response: dict) -> None:
         )
     if not isinstance(response['homeworks'], list):
         raise TypeError(
-            f"Значение по ключу <homeworks> должно быть списком."
+            "Значение по ключу <homeworks> должно быть списком."
             f"Получен тип: {type(response['homeworks']).__name__}"
         )
     logger.info('Проверка данных прошла успешно!')
@@ -122,7 +121,7 @@ def parse_status(homework: list[dict[str, str]]) -> str:
     missing_keys = [key for key in required_keys if key not in homework]
     if missing_keys:
         raise KeyError(
-            f'Отсутствуют ключи в домашней работе:'
+            'Отсутствуют ключи в домашней работе:'
             f' {", ".join(missing_keys)}.'
             f' Ожидались ключи: {", ".join(required_keys)}.'
 
@@ -143,10 +142,11 @@ def main():
     """Основная логика работы бота."""
     check_tokens()
     bot = TeleBot(TELEGRAM_TOKEN)
-    timestamp = int(time.time())
+    
     last_message = ''
     while True:
         try:
+            timestamp = int(time.time()) - 24 * 3600 * 30
             response = get_api_answer(timestamp)
             check_response(response)
             homeworks = response['homeworks']
@@ -157,7 +157,6 @@ def main():
             if last_message != status_homework:
                 send_message(bot, status_homework)
                 last_message = status_homework
-                continue
             logger.debug('Отсутствие в ответе новых статусов')
             timestamp = response.get('current_date', timestamp)
         except (
@@ -172,7 +171,7 @@ def main():
             if last_message != message:
                 with suppress(
                         telebot.apihelper.ApiException,
-                        BotConnectionError
+                        requests.RequestException
                 ):
                     send_message(bot, message)
                     last_message = message

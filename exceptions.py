@@ -4,7 +4,3 @@ class RequestStatusCodeError(Exception):
 
 class EnvError(Exception):
     """Ошибка переменных окружения."""
-
-
-class BotConnectionError(Exception):
-    """Нет подключения к интернету"""
