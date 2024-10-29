@@ -1,15 +1,13 @@
-import logging
 import os
-import sys
 import time
 from contextlib import suppress
-from logging.handlers import RotatingFileHandler
 
 import requests
 import telebot
 from dotenv import load_dotenv
 from telebot import TeleBot
 
+import app_loger
 from exceptions import (
     RequestStatusCodeError,
     EnvError,
@@ -35,21 +33,7 @@ HOMEWORK_VERDICTS = {
 }
 
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-formatter = logging.Formatter(
-    "%(asctime)s- [%(levelname)s] - [%(funcName)s:%(lineno)d] - %(message)s"
-)
-file_handler = RotatingFileHandler(
-    'my_logger.log',
-    maxBytes=50000000,
-    backupCount=5
-)
-console_handler = logging.StreamHandler(sys.stdout)
-file_handler.setFormatter(formatter)
-console_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
-logger.addHandler(console_handler)
+logger = app_loger.get_logger(__name__)
 
 
 def check_tokens():
@@ -117,7 +101,7 @@ def check_response(response: dict) -> None:
 def parse_status(homework: list[dict[str, str]]) -> str:
     """Извлекает статус домашней работы."""
     logger.info('Начало проверки статуса домашней работы')
-    required_keys = ['homework_name', 'status']
+    required_keys = ['lesson_name', 'status']
     missing_keys = [key for key in required_keys if key not in homework]
     if missing_keys:
         raise KeyError(
@@ -127,7 +111,7 @@ def parse_status(homework: list[dict[str, str]]) -> str:
 
         )
     'Отсутствуют ключи в домашней работе: {}. Ожидались ключи: {}.'
-    homework_name = homework['homework_name']
+    lesson_name = homework['lesson_name']
     status = homework['status']
     if status not in HOMEWORK_VERDICTS:
         msg = (f'Неожиданный статус домашней работы,'
@@ -135,18 +119,17 @@ def parse_status(homework: list[dict[str, str]]) -> str:
         raise ValueError(msg)
     verdict = HOMEWORK_VERDICTS[status]
     logger.info('Проверка статуса домашней работы прошла успешно!')
-    return f'Изменился статус проверки работы "{homework_name}". {verdict}'
+    return f'Изменился статус проверки работы - "{lesson_name}". {verdict}'
 
 
 def main():
     """Основная логика работы бота."""
     check_tokens()
     bot = TeleBot(TELEGRAM_TOKEN)
-    
+    timestamp = int(time.time())
     last_message = ''
     while True:
         try:
-            timestamp = int(time.time()) - 24 * 3600 * 30
             response = get_api_answer(timestamp)
             check_response(response)
             homeworks = response['homeworks']
